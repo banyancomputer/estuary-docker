@@ -1,13 +1,13 @@
 # Ec2 IP
 output "ec2_public_ip" {
     description = "The public IP address of the EC2 instance"
-    value = aws_eip.ec2_eip.public_ip
+    value = aws_eip.ec2_eip[0].public_ip
     depends_on = [aws_eip.ec2_eip]
 }
 # Ec2 DNS
 output "ec2_public_dns" {
     description = "The public DNS name of the EC2 instance"
-    value = aws_eip.ec2_eip.public_dns
+    value = aws_eip.ec2_eip[0].public_dns
     depends_on = [aws_eip.ec2_eip]
 }
 # RDS Endpoint

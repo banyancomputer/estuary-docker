@@ -1,4 +1,5 @@
 variable "project" {
+  type = string
   default = "estuary"
 }
 # Our AWS region
@@ -6,30 +7,29 @@ variable "aws_region" {
   default = "us-east-2"
 }
 # Our Deployment Settings
+# TODO: Figure out why map(any) doesn't work here
 variable "settings" {
   description = "Configuration Settings"
-  type        = map(any)
-  default     = tomap({
+  type        = map(map(string))
+  default     = {
     # Configuration for RDS
-    rds = tomap({
-      allocated_storage   = 20 # in GB TODO: Make this a variable/bigger
+    rds = {
+      allocated_storage   = "20" # in GB TODO: Make this a variable/bigger
       engine              = "postgres"
       engine_version      = "14.0" # TODO: Figure out which version we want
       instance_class      = "db.t3.micro" # TODO: Research what instance is appropriate
       db_name             = "estuary-db"
-      skip_final_snapshot = true # Don't create a final snapshot (backup)
-    }),
+      skip_final_snapshot = "true" # Don't create a final snapshot (backup)
+    },
     # Configuration for our EC2 instance
-    ec2 = tomap({
-      count             = 1 # We only want one instance
+    ec2 = {
+      count             = "1" # We only want one instance
       instance_type     = "t3.medium" # TODO: Research what instance is appropriate
-      monitoring        = true
-      root_block_device = tomap({
-        volume_type = "gp3"
-        volume_size = 20 # in GB TODO: Make this a variable/bigger
-      })
-    }),
-  })
+      monitoring        = "true"
+      rbs_volume_type = "gp3"
+      rbs_volume_size = "20" # in GB TODO: Make this a variable/bigger
+    },
+  }
 }
 # Our VPC CIDR
 variable "vpc_cidr_block" {

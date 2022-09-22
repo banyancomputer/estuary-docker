@@ -21,12 +21,12 @@ data "aws_availability_zones" "available" {
 
 /* ECR Repository */
 resource "aws_ecr_repository" "ecr" {
-  name                 = var.project + "-ecr"
+  name                 = join("-", [var.project, "ecr"])
   image_tag_mutability = "MUTABLE"
 
   tags = {
     project = var.project
-    Name    = var.project + "-ecr"
+    Name    = join("-", [var.project, "ecr"])
   }
 }
 
@@ -38,7 +38,7 @@ resource "aws_vpc" "vpc" {
   enable_dns_hostnames = true
   tags                 = {
     project = var.project
-    Name    = var.project + "-vpc"
+    Name    = join("-", [var.project, "vpc"])
   }
 }
 
@@ -47,7 +47,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc.id
   tags   = {
     project = var.project
-    Name    = var.project + "-igw"
+    Name    = join("-", [var.project, "igw"])
   }
 }
 
@@ -60,7 +60,7 @@ resource "aws_subnet" "public_subnet" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags              = {
     project = var.project
-    Name    = var.project + "-public-subnet-" + count.index
+    Name    = join("-", [var.project, "public-subnet", count.index])
   }
 }
 # Private Subnet(s)
@@ -71,7 +71,7 @@ resource "aws_subnet" "private_subnet" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags              = {
     project = var.project
-    Name    = var.project + "-private-subnet-" + count.index
+    Name    = join("-", [var.project, "private-subnet", count.index])
   }
 }
 
@@ -85,7 +85,7 @@ resource "aws_route_table" "rt" {
   }
   tags = {
     project = var.project
-    Name    = var.project + "-rt"
+    Name    = join("-", [var.project, "rt"])
   }
 }
 # Public Subnet Association
@@ -93,20 +93,12 @@ resource "aws_route_table_association" "public" {
   count          = var.subnet_count.public
   subnet_id      = aws_subnet.public_subnet[count.index].id
   route_table_id = aws_route_table.rt.id
-  tag            = {
-    project = var.project
-    Name    = var.project + "-public-rt-association-" + count.index
-  }
 }
 # Private Subnet Association
 resource "aws_route_table_association" "private" {
   count          = var.subnet_count.private
   subnet_id      = aws_subnet.private_subnet[count.index].id
   route_table_id = aws_route_table.rt.id
-  tag            = {
-    project = var.project
-    Name    = var.project + "-private-rt-association-" + count.index
-  }
 }
 
 /* Security Groups */
@@ -166,7 +158,7 @@ resource "aws_security_group" "ec2_sg" {
   }
   tags = {
     project = var.project
-    Name    = var.project + "-ec2-sg"
+    Name    =  join("-", [var.project, "ec2-sg"])
   }
 }
 # RDS Security Group
@@ -181,7 +173,9 @@ resource "aws_security_group" "rds_sg" {
     to_port         = 5432
     protocol        = "tcp"
     description     = "PostgreSQL"
-    security_groups = [aws_security_group.ec2_sg.id]
+    cidr_blocks = [
+      aws_vpc.vpc.cidr_block
+    ]
   }
 
   # Allow all outbound traffic.
@@ -193,17 +187,17 @@ resource "aws_security_group" "rds_sg" {
 
   tags = {
     project = var.project
-    Name    = var.project + "-rds-sg"
+    Name    = join("-", [var.project, "rds-sg"])
   }
 }
 # Declare a Subnet group for our RDS instance
 resource "aws_db_subnet_group" "rds_subnet_group" {
-  name        = var.project + "-rds-subnet-group"
+  name        = join("-", [var.project, "rds-subnet-group"])
   description = "Subnet group for our RDS instance"
   subnet_ids  = aws_subnet.private_subnet[*].id # Neato!
-  tag         = {
+  tags         = {
     project = var.project
-    Name    = var.project + "-rds-subnet-group"
+    Name    = join("-", [var.project, "rds-subnet-group"])
   }
 }
 
@@ -211,22 +205,22 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
 
 /* RDS Instances */
 resource "aws_db_instance" "rds" {
-  identifier             = var.project + "-rds"
-  allocated_storage      = var.settings["rds"]["allocated_storage"]
-  engine                 = var.settings["rds"]["engine"]
-  engine_version         = var.settings["rds"]["engine_version"]
-  instance_class         = var.settings["rds"]["instance_class"]
-  db_name                = var.settings["rds"]["db_name"]
+  identifier             = join("-", [var.project, "rds"])
+  allocated_storage      = tonumber(var.settings.rds.allocated_storage)
+  engine                 = var.settings.rds.engine
+  engine_version         = var.settings.rds.engine_version
+  instance_class         = var.settings.rds.instance_class
+  db_name                = var.settings.rds.db_name
   username               = var.rds_username
   password               = var.rds_password
   db_subnet_group_name   = aws_db_subnet_group.rds_subnet_group.id # Should this be id or name?
   vpc_security_group_ids = [
     aws_security_group.rds_sg.id
   ]
-  skip_final_snapshot = var.settings["rds"]["skip_final_snapshot"]
+  skip_final_snapshot = tobool(var.settings.rds.skip_final_snapshot)
   tags                = {
     project = var.project
-    Name    = var.project + "-rds"
+    Name    = join("-", [var.project, "rds"])
   }
 }
 
@@ -235,79 +229,63 @@ resource "aws_db_instance" "rds" {
 resource "tls_private_key" "ec2_key" {
   algorithm = "RSA"
   rsa_bits  = 4096
-  tags      = {
-    project = var.project
-    Name    = var.project + "-ec2-private-key"
-  }
-
 }
 resource "aws_key_pair" "ec2_key" {
-  key_name   = var.project + "-ec2-key"
+  key_name   = join("-", [var.project, "ec2-key"])
   public_key = tls_private_key.ec2_key.public_key_openssh
-  tags       = {
-    project = var.project
-    Name    = var.project + "-ec2-public-key"
-  }
 }
 # IAM Role
 resource "aws_iam_role" "ec2_role" {
-  name               = var.project + "-ec2-role"
+  name               = join("-", [var.project, "ec2-role"])
   # TODO (amiller68) - Is this the right policy?
-  assume_role_policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-        "Action": "sts:AssumeRole",
-        "Principal": {
-            "Service": "ec2.amazonaws.com"
-        },
-        "Effect": "Allow",
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
         }
+        Sid = ""
+      }
     ]
-}
-EOF
+  })
   tags               = {
     project = var.project
-    Name    = var.project + "-ec2-role"
+    Name    = join("-", [var.project, "ec2-role"])
   }
 }
 resource "aws_iam_instance_profile" "ec2_profile" {
-  name = var.project + "-ec2-profile"
+  name = join("-", [var.project, "ec2-profile"])
   role = aws_iam_role.ec2_role.name
   tags = {
     project = var.project
-    Name    = var.project + "-ec2-profile"
+    Name    = join("-", [var.project, "ec2-profile"])
   }
 }
-resource "aws_iam_instance_policy" "ec2_policy" {
-  name   = var.project + "-ec2-policy"
+resource "aws_iam_role_policy" "ec2_policy" {
+  name   = join("-", [var.project, "ec2-policy"])
+  role = aws_iam_role.ec2_role.id
   # TODO (amiller68): Narrow down this policy to just the ECR image we need
-  policy = <<EOF
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Action": [
-                "ecr:GetAuthorizationToken",
-                "ecr:GetDownloadUrlForLayer",
-                "ecr:BatchGetImage"
-            ],
-            "Effect": "Allow",
-            "Resource": "*"
-        }
+  policy = jsonencode({
+    Version : "2012-10-17",
+    Statement : [
+      {
+        Effect : "Allow",
+        Action : [
+          "ecr:GetAuthorizationToken",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+        ],
+        Resource : "*"
+      }
     ]
-}
-EOF
-  tags   = {
-    project = var.project
-    Name    = var.project + "-ec2-policy"
-  }
+  })
 }
 # AMI
 data "aws_ami" "ec2-ami" {
   # TODO (amiller68): Figure out which ami to use. I followed this guide: https://klotzandrew.com/blog/deploy-an-ec2-to-run-docker-with-terraform for this part
-  name        = var.project + "-ec2-ami"
   most_recent = true
   owners      = ["amazon"]
   filter {
@@ -318,12 +296,13 @@ data "aws_ami" "ec2-ami" {
 # (Finally) The EC2 Instance
 resource "aws_instance" "ec2" {
   # Configure the instance
-  count         = var.settings["ec2"]["count"]
-  instance_type = var.settings["ec2"]["instance_type"]
+  count         = tonumber(var.settings.ec2.count)
+  instance_type = var.settings.ec2.instance_type
   root_block_device {
-    volume_size = var.settings["ec2"]["root_block_device"]["volume_size"]
-    volume_type = var.settings["ec2"]["root_block_device"]["volume_type"]
+    volume_size = tonumber(var.settings.ec2.rbs_volume_size)
+    volume_type = var.settings.ec2.rbs_volume_type
   }
+  monitoring = tobool(var.settings.ec2.monitoring)
   # Link our Dependencies
   ami                    = data.aws_ami.ec2-ami.id
   key_name               = aws_key_pair.ec2_key.key_name
@@ -343,15 +322,15 @@ resource "aws_instance" "ec2" {
   EOF
   tags = {
     project = var.project
-    Name    = var.project + "-ec2-" + count.index
+    Name    = join("-", [var.project, "ec2", count.index])
   }
 }
 # Elastic IP
 resource "aws_eip" "ec2_eip" {
-  count    = var.settings["ec2"]["count"]
+  count    = tonumber(var.settings.ec2.count)
   instance = aws_instance.ec2[count.index].id
   vpc      = true
   tags     = {
-    Name = var.project + "-ec2-eip-" + count.index
+    Name = join("-", [var.project, "ec2-eip", count.index])
   }
 }
