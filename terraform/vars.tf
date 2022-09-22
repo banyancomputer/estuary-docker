@@ -1,5 +1,5 @@
 variable "project" {
-  type = string
+  type    = string
   default = "estuary"
 }
 # Our AWS region
@@ -16,16 +16,16 @@ variable "settings" {
     rds = {
       allocated_storage   = "20" # in GB TODO: Make this a variable/bigger
       engine              = "postgres"
-      engine_version      = "14.0" # TODO: Figure out which version we want
+      engine_version      = "14" # TODO: Figure out which version we want
       instance_class      = "db.t3.micro" # TODO: Research what instance is appropriate
-      db_name             = "estuary-db"
+      db_name             = "estuary"
       skip_final_snapshot = "true" # Don't create a final snapshot (backup)
     },
     # Configuration for our EC2 instance
     ec2 = {
-      count             = "1" # We only want one instance
-      instance_type     = "t3.medium" # TODO: Research what instance is appropriate
-      monitoring        = "true"
+      count           = "1" # We only want one instance
+      instance_type   = "t3.medium" # TODO: Research what instance is appropriate
+      monitoring      = "true"
       rbs_volume_type = "gp3"
       rbs_volume_size = "20" # in GB TODO: Make this a variable/bigger
     },

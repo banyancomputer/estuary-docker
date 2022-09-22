@@ -22,4 +22,10 @@ output "rds_port" {
     value = aws_db_instance.rds.port
     depends_on = [aws_db_instance.rds]
 }
-
+# Ec2 Private Key
+output "ec2_private_key" {
+    description = "The private key of the EC2 instance"
+    value = tls_private_key.ec2_key.private_key_pem
+    depends_on = [tls_private_key.ec2_key]
+    sensitive = true
+}
