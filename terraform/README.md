@@ -3,8 +3,7 @@
 
 This Directory describes a development deployment Environment and Architecture for an Estuary node. It is intended to be used as a reference for a production deployment.
 Hopefully this will be useful for anyone who wants to deploy Estuary on AWS EC2 and RDS or use it as a reference for their own deployment.
-I plan on also implementing a Pipeline for this deployment.
-The goal is to robust CD pipeline for Estuary.
+The goal is to implement a robust CD pipeline for Estuary.
 
 ## Contents
 This directory contains the Terraform configuration for deploying Estuary on AWS EC2 and RDS.
@@ -39,16 +38,17 @@ It describes the following components implemented in AWS:
   - Associated w/ Public Subnet(s):
   - Associated w/ Private Subnet(s):
 - Security Groups
+  - TODO: Audit Security Groups
   - EC2
     - Associated w/ VPC
     - Ingress:
       - SSH
-      - HTTP
-      - HTTPS
+      - HTTP TODO: CHECK IF THIS IS NEEDED
+      - HTTPS TODO: CHECK IF THIS IS NEEDED
       - RDS (Postgres)
-      - Estuary API (TCP 3004)
+      - Estuary API (TCP 3004) TODO: CHECK IF THIS IS NEEDED
     - Egress:
-      - The Internet
+      - The Internet TODO: Narrow down to Deployed Estuary Domain
   - RDS
     - Associated w/ VPC
     - Ingress:
@@ -58,6 +58,8 @@ It describes the following components implemented in AWS:
 - EC2 Instance
   - This Describes the Environment for the Estuary node.
   - Implements TLS Private Key: RSA / 4096 | Public Key pair
+    - TODO: Integrate with AWS KMS
+    - Outputs the private key to terraform.tfstate as an unencrypted output
   - Implements a Role for Reading from the ECR Repository
   - Configures an AMI
     - This AMI is based on the latest Amazon Linux 2 AMI.
@@ -82,6 +84,19 @@ It returns:
 - The RDS Endpoint.
 
 ## Deployment
+1. Deploy our infrastructure with Terraform:
+```bash
+$ terraform init
+$ terraform plan -var-file=secret.tfvars
+$ terraform apply -var-file=secret.tfvars
+```
+2. Push our Docker image to ECR:
+```bash
+$ aws ecr get-login-password --region <AWS_REGION> | docker login --username AWS --password-stdin <AWS_ACCT_NUMBER>.dkr.ecr.<AWS_REGION>.amazonaws.com
+$ docker build -t <PROJECT-NAME>-ecr .
+$ docker tag <PROJECT-NAME>-ecr:latest <AWS_ACCT_NUMBER>.dkr.ecr.<AWS_REGION>.amazonaws.com/<PROJECT-NAME>-ecr:latest
+$ docker push <AWS_ACCT_NUMBER>.dkr.ecr.<AWS_REGION>.amazonaws.com/<PROJECT-NAME>-ecr:latest
+```
 
 ### Prerequisites
 

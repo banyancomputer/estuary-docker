@@ -130,7 +130,7 @@ resource "aws_security_group" "ec2_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    description = "Telnet"
+    description = "Telnet" # TODO: Should be ssh
     cidr_blocks = ["0.0.0.0/0"]
   }
   # HTTP
@@ -158,7 +158,7 @@ resource "aws_security_group" "ec2_sg" {
   }
   tags = {
     project = var.project
-    Name    =  join("-", [var.project, "ec2-sg"])
+    Name    = join("-", [var.project, "ec2-sg"])
   }
 }
 # RDS Security Group
@@ -169,10 +169,10 @@ resource "aws_security_group" "rds_sg" {
 
   # Allow inbound traffic from the EC2 instance
   ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    description     = "PostgreSQL"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    description = "PostgreSQL"
     cidr_blocks = [
       aws_vpc.vpc.cidr_block
     ]
@@ -195,7 +195,7 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
   name        = join("-", [var.project, "rds-subnet-group"])
   description = "Subnet group for our RDS instance"
   subnet_ids  = aws_subnet.private_subnet[*].id # Neato!
-  tags         = {
+  tags        = {
     project = var.project
     Name    = join("-", [var.project, "rds-subnet-group"])
   }
@@ -239,11 +239,11 @@ resource "aws_iam_role" "ec2_role" {
   name               = join("-", [var.project, "ec2-role"])
   # TODO (amiller68) - Is this the right policy?
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
+        Action    = "sts:AssumeRole"
+        Effect    = "Allow"
         Principal = {
           Service = "ec2.amazonaws.com"
         }
@@ -251,7 +251,7 @@ resource "aws_iam_role" "ec2_role" {
       }
     ]
   })
-  tags               = {
+  tags = {
     project = var.project
     Name    = join("-", [var.project, "ec2-role"])
   }
@@ -266,7 +266,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
 }
 resource "aws_iam_role_policy" "ec2_policy" {
   name   = join("-", [var.project, "ec2-policy"])
-  role = aws_iam_role.ec2_role.id
+  role   = aws_iam_role.ec2_role.id
   # TODO (amiller68): Narrow down this policy to just the ECR image we need
   policy = jsonencode({
     Version : "2012-10-17",
@@ -285,12 +285,11 @@ resource "aws_iam_role_policy" "ec2_policy" {
 }
 # AMI
 data "aws_ami" "ec2-ami" {
-  # TODO (amiller68): Figure out which ami to use. I followed this guide: https://klotzandrew.com/blog/deploy-an-ec2-to-run-docker-with-terraform for this part
   most_recent = true
   owners      = ["amazon"]
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"] # TODO: See if Gp3 is available, try and find something free tier
   }
 }
 # (Finally) The EC2 Instance
@@ -302,7 +301,7 @@ resource "aws_instance" "ec2" {
     volume_size = tonumber(var.settings.ec2.rbs_volume_size)
     volume_type = var.settings.ec2.rbs_volume_type
   }
-  monitoring = tobool(var.settings.ec2.monitoring)
+  monitoring             = tobool(var.settings.ec2.monitoring)
   # Link our Dependencies
   ami                    = data.aws_ami.ec2-ami.id
   key_name               = aws_key_pair.ec2_key.key_name
@@ -317,10 +316,8 @@ resource "aws_instance" "ec2" {
     sudo amazon-linux-extras install docker -y
     sudo service docker start
     sudo usermod -a -G docker ec2-user
-    sudo curl -L https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m) -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
   EOF
-  tags = {
+  tags                   = {
     project = var.project
     Name    = join("-", [var.project, "ec2", count.index])
   }
@@ -331,6 +328,7 @@ resource "aws_eip" "ec2_eip" {
   instance = aws_instance.ec2[count.index].id
   vpc      = true
   tags     = {
-    Name = join("-", [var.project, "ec2-eip", count.index])
+    project = var.project
+    Name    = join("-", [var.project, "ec2-eip", count.index])
   }
 }

@@ -28,6 +28,7 @@ variable "settings" {
       monitoring      = "true"
       rbs_volume_type = "gp3"
       rbs_volume_size = "20" # in GB TODO: Make this a variable/bigger
+      # TODO: Make second HD for blockstore/genreally look into making this better
     },
   }
 }
