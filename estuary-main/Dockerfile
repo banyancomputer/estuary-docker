@@ -36,9 +36,9 @@ RUN cargo --help
 RUN git clone https://github.com/banyancomputer/estuary . && \
     RUSTFLAGS="-C target-cpu=native -g" FFI_BUILD_FROM_SOURCE=1 make all
 
-# Initialize our Waiting Script
-COPY ./wait-for-it.sh /app/wait-for-it.sh
-RUN chmod +x /app/wait-for-it.sh
+## Initialize our Waiting Script: Only needed in Development
+#COPY ./wait-for-it.sh /app/wait-for-it.sh
+#RUN chmod +x /app/wait-for-it.sh
 
 # Initialize our Statup Script
 COPY start.sh /app/start.sh

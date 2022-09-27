@@ -14,6 +14,8 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
+# Who's launching all this Infra
+data "aws_caller_identity" "caller" {}
 # Get the Available AZs
 data "aws_availability_zones" "available" {
   state = "available"
@@ -23,6 +25,8 @@ data "aws_availability_zones" "available" {
 resource "aws_ecr_repository" "ecr" {
   name                 = join("-", [var.project, "ecr"])
   image_tag_mutability = "MUTABLE"
+
+  # TODO (amiller68): Call the build playbook to build the image
 
   tags = {
     project = var.project
@@ -108,14 +112,6 @@ resource "aws_security_group" "ec2_sg" {
   description = "Allow inbound traffic from the Internet to our Estuary EC2 instance(s)"
   vpc_id      = aws_vpc.vpc.id
 
-  # Estuary API
-  ingress {
-    description = "Allow inbound traffic from the Internet to our Estuary EC2 instance(s)"
-    from_port   = 3004
-    to_port     = 3004 # TODO (amiller68) : Is this right?
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
   # RDS
   ingress {
     from_port       = 5432
@@ -130,7 +126,7 @@ resource "aws_security_group" "ec2_sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    description = "Telnet" # TODO: Should be ssh
+    description = "ssh"
     cidr_blocks = ["0.0.0.0/0"]
   }
   # HTTP
@@ -297,10 +293,10 @@ resource "aws_instance" "ec2" {
   # Configure the instance
   count         = tonumber(var.settings.ec2.count)
   instance_type = var.settings.ec2.instance_type
-  root_block_device {
-    volume_size = tonumber(var.settings.ec2.rbs_volume_size)
-    volume_type = var.settings.ec2.rbs_volume_type
-  }
+  root_block_storage {
+    volume_size = tonumber(var.settings.ec2.volume_size)
+    volume_type = var.settings.ec2.volume_type
+ }
   monitoring             = tobool(var.settings.ec2.monitoring)
   # Link our Dependencies
   ami                    = data.aws_ami.ec2-ami.id
@@ -308,15 +304,28 @@ resource "aws_instance" "ec2" {
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   subnet_id              = aws_subnet.public_subnet[count.index].id
-  # Install Docker
+  # Install Docker: TODO (amiller68): This seems like a non-standard way of doing this. Implement this in Ansible
   user_data              = <<-EOF
     #!/bin/bash
     set -ex
     sudo yum update -y
-    sudo amazon-linux-extras install docker -y
+    sudo amazon-linux-extras install docker nginx -y
     sudo service docker start
     sudo usermod -a -G docker ec2-user
   EOF
+  provisioner "remote-exec" {
+    inline = [
+      "set -ex",
+      "sudo yum update -y",
+      "sudo amazon-linux-extras install docker nginx -y",
+      "sudo service docker start",
+      "sudo usermod -a -G docker ec2-user"
+    ]
+
+    connection {
+      host = self.ipv4_address
+    }
+  }
   tags                   = {
     project = var.project
     Name    = join("-", [var.project, "ec2", count.index])
@@ -332,3 +341,20 @@ resource "aws_eip" "ec2_eip" {
     Name    = join("-", [var.project, "ec2-eip", count.index])
   }
 }
+# TODO (amiller68): Implement EBS volumes for EC2 instances + Docker
+#resource "aws_ebs_volume" "ebs_volume" {
+#  count             = tonumber(var.settings.ec2.count)
+#  availability_zone = aws_subnet.public_subnet[count.index].availability_zone
+#  size              = tonumber(var.settings.ec2.volume_size)
+#  type              = var.settings.ec2.volume_type
+#  tags              = {
+#    project = var.project
+#    Name    = join("-", [var.project, "ebs", count.index])
+#  }
+#}
+#resource "aws_volume_attachment" "ebs_volume_attachment" {
+#  count       = tonumber(var.settings.ec2.count)
+#  device_name = "/dev/sdh"
+#  volume_id   = aws_ebs_volume.ebs_volume[count.index].id
+#  instance_id = aws_instance.ec2[count.index].id
+#}

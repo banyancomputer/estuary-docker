@@ -1,0 +1,65 @@
+- become: yes
+  hosts: all
+  name: Setup and
+  tasks:
+    - name: Get ECR Login
+      shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
+      register: ecr_login
+    - name: Pull Estuary from ECR
+      docker_image:
+        name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/estuary-ecr:latest"
+        source: pull
+        force_source: yes
+        force: yes
+        state: present
+        timeout: 300
+      register: estuary_image_pull
+      until: estuary_image_pull is succeeded
+        retries: 3
+    - name: Run Estuary
+        docker_container:
+          name: estuary
+          image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/estuary-ecr:latest"
+          state: started
+          restart_policy: always
+          env:
+          ESTUARY_MAIN_HOSTNAME: "{{ estuary_main_hostname }}"
+          ESTUARY_WWW_HOSTNAME: "{{ estuary_www_hostname }}"
+          FULLNODE_API: "{{ fullnode_api }}"
+          DB_TYPE: "{{ db_type }}"
+          DB_HOST: "{{ db_host }}"
+          DB_PORT: "{{ db_port }}"
+          DB_NAME: "{{ db_name }}"
+          VOLUME_DIR: "{{ estuary_volume_dir }}"
+          ports:
+            - "80:3004"
+          volumes:
+            - "{{ estuary_volume_name }}:{{ estuary_volume_dir }}"
+          command: [ "/app/start.sh", "{{db_username}}", "{{db_password}}" ]
+        register: estuary_container_run
+    - name: Copy over Nginx Config
+        copy:
+          src: "{{ nginx_config }}"
+          dest: "/etc/nginx/sites-available/{{ nginx_config }}"
+          owner: root
+          group: root
+          mode: 0644
+        register: nginx_config_copy
+        until: nginx_config_copy is succeeded
+          retries: 3
+    - name: Enable Nginx Config
+        file:
+          src: "/etc/nginx/sites-available/{{ nginx_config }}"
+          dest: "/etc/nginx/sites-enabled/{{ nginx_config }}"
+          state: link
+        register: nginx_config_enable
+        until: nginx_config_enable is succeeded
+          retries: 3
+    - name: Restart Nginx
+        service:
+          name: nginx
+          state: restarted
+        register: nginx_restart
+        until: nginx_restart is succeeded
+          retries: 3
+

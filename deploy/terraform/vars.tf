@@ -26,8 +26,8 @@ variable "settings" {
       count           = "1" # We only want one instance
       instance_type   = "t3.medium" # TODO: Research what instance is appropriate
       monitoring      = "true"
-      rbs_volume_type = "gp3"
-      rbs_volume_size = "20" # in GB TODO: Make this a variable/bigger
+      volume_type = "gp3"
+      volume_size = "20" # in GB TODO: Make this a variable/bigger
       # TODO: Make second HD for blockstore/genreally look into making this better
     },
   }

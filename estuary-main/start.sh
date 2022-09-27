@@ -5,35 +5,29 @@
 
 # Here for notation purposes
 # The Workdir for the container
-WORKDIR=/app
+WORK_DIR=/app
+
+# Read The Username and Password for the database from the script arguments
+DB_USERNAME=$1
+DB_PASSWORD=$2
+
+# Our Infra Config
+echo "WORK_DIR: $WORK_DIR"
+echo "VOLUME_DIR: $VOLUME_DIR"
 
 # Log our Deployment Config
-echo "WORKDIR: $WORKDIR"
 echo "HOSTNAME: $ESTUARY_MAIN_HOSTNAME"
 echo "FRONTEND: $ESTUARY_WWW_HOSTNAME"
 echo "FULLNODE_API: $FULLNODE_API"
 
-# Log our Postgres DB Connection
-echo "DB_TYPE: $DB_TYPE"
-echo "DB_HOST: $DB_HOST"
-echo "DB_PORT: $DB_PORT"
-echo "DB_USER: $DB_USER"
-echo "DB_PASSWORD: $DB_PASSWORD"
-echo "DB_NAME: $DB_NAME"
-
 # Define a Database Connection String
-# This one is for Postgres!
-DB_CONN_STRING="$DB_TYPE=$DB_TYPE://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
-echo "DB_CONN_STRING: $DB_CONN_STRING"
-
-# Where our Estuary container stores its Blockstore
-# We will configure a docker Volume for this in the compose stack
-DATA_DIR=/mnt/blockstore
-# Where our Estuary container stores its config
-PRIVATE_DIR=/mnt/private
+DB_CONN_STRING="$DB_TYPE=$DB_TYPE://$DB_USERNAME:$DB_PASSWORD@$DB_HOST:$DB_PORT/$DB_NAME"
+# Define our Store Dirs
+DATA_DIR=$VOLUME_DIR/blockstore
+PRIV_DIR=$VOLUME_DIR/private
 
 # We'll take PRIVATE_DIR existing as a test of whether or not we've initialized this Container
-if test ! -d "$PRIVATE_DIR"; then
+if test ! -d "$PRIV_DIR"; then
   echo "Initializing Estuary Node Credentials..."
 
   # This is needed to make sure we dont get 'too many open files' errors
@@ -41,7 +35,7 @@ if test ! -d "$PRIVATE_DIR"; then
 
   # Initialize our Mounts
   mkdir -p $DATA_DIR
-  mkdir -p $PRIVATE_DIR
+  mkdir -p $PRIV_DIR
 
   # setup our node in the container
   ESTUARY_TOKEN=$(/app/estuary setup --database="$DB_CONN_STRING" --username=admin | grep Token | cut -d ' ' -f 3)

@@ -43,12 +43,11 @@ It describes the following components implemented in AWS:
     - Associated w/ VPC
     - Ingress:
       - SSH
-      - HTTP TODO: CHECK IF THIS IS NEEDED
-      - HTTPS TODO: CHECK IF THIS IS NEEDED
+      - HTTP TODO: is this needed?
+      - HTTPS
       - RDS (Postgres)
-      - Estuary API (TCP 3004) TODO: CHECK IF THIS IS NEEDED
     - Egress:
-      - The Internet TODO: Narrow down to Deployed Estuary Domain
+      - The Internet
   - RDS
     - Associated w/ VPC
     - Ingress:
