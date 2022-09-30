@@ -1,34 +1,51 @@
-variable "project" {
-  type    = string
-  default = "estuary"
-}
 # Our AWS region
 variable "aws_region" {
   default = "us-east-2"
 }
-# Our Deployment Settings
-# TODO: Figure out why map(any) doesn't work here
+# The Size of the blockstore volume
+variable "blockstore_size" {
+  default = "20"
+}
+# What defines access to our application
+variable "app" {
+  type    = map(string)
+  default = {
+    name         = "estuary"
+    www_hostname = "banyan.computer"
+    api_hostname = "banyan.computer"
+    api_port     = "3004"
+    fullnode_api = "ws://api.chain.love"
+  }
+}
+# The settings for our Instances
 variable "settings" {
   description = "Configuration Settings"
   type        = map(map(string))
+  # Note (al): For some reason, map(map(any)) doesn't work here.
+  # Set config values as strings and convert to the appropriate type.
   default     = {
     # Configuration for RDS
     rds = {
-      allocated_storage   = "20" # in GB TODO: Make this a variable/bigger
+      allocated_storage   = "5" # in GB TODO: Make this a variable/bigger
       engine              = "postgres"
-      engine_version      = "14" # TODO: Figure out which version we want
+      engine_version      = "14"
       instance_class      = "db.t3.micro" # TODO: Research what instance is appropriate
       db_name             = "estuary"
       skip_final_snapshot = "true" # Don't create a final snapshot (backup)
     },
     # Configuration for our EC2 instance
     ec2 = {
-      count           = "1" # We only want one instance
-      instance_type   = "t3.medium" # TODO: Research what instance is appropriate
-      monitoring      = "true"
+      count         = "1" # We only want one instance
+      instance_type = "t3.medium" # Estuary team has been using this
+      monitoring    = "true"
+      volume_type   = "gp3"
+      volume_size   = "20" # in GB. The Size needed for the AMI
+    },
+    # Configuration for our EBS volume and attachment. Created by Ansible
+    ebs = {
       volume_type = "gp3"
-      volume_size = "20" # in GB TODO: Make this a variable/bigger
-      # TODO: Make second HD for blockstore/genreally look into making this better
+      volume_size = "20" # in GB.
+      mount_dir   = "/mnt"
     },
   }
 }
@@ -69,12 +86,6 @@ variable "private_subnet_cidrs" {
     "10.0.104.0/24",
   ]
 }
-# The local IP address of the machine running Terraform. This is used to control access to the EC2 security group.
-#variable "local_ip" {
-#  description = "The local IP address of the machine running Terraform"
-#  type        = string
-#  sensitive   = true
-#}
 # The username for our RDS instance
 variable "rds_username" {
   description = "The username for our RDS instance"

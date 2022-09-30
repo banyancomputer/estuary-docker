@@ -7,7 +7,7 @@
     register: ecr_login
   - name: Build Image
     command:
-      chdir: "{{ estuary_dir }}"
+      chdir: "{{ docker_dir }}"
       cmd: docker build -t  estuary-ecr .
     register: image_build
   - name: Tag Estuary

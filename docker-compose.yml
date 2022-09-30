@@ -1,3 +1,5 @@
+## DEPRECATED FOR THE TIME BEING
+
 version: "3.7"
 services:
   # Our Reverse Proxy service for LoadBalancing and CORs
@@ -18,21 +20,21 @@ services:
     # Set the environment variables for our startup script
     environment:
       # Our Estuary Deployment Configuration
-      - ESTUARY_MAIN_HOSTNAME=${ESTUARY_MAIN_HOSTNAME}  # Where we are running (localhost most likely)
-      - ESTUARY_WWW_HOSTNAME=${ESTUARY_WWW_HOSTNAME}  # Where our front end is running (localhost by default)
+      - API_HOSTNAME=${ESTUARY_MAIN_HOSTNAME}  # Where we are running (localhost most likely)
+      - WWW_HOSTNAME=${ESTUARY_WWW_HOSTNAME}  # Where our front end is running (localhost by default)
       - FULLNODE_API=${FULLNODE_API}  # Where our full Lotus node is running
       # PostgresSQL connection vars
       - DB_TYPE=postgres  # We are using postgres
-      - DB_HOST=db  # The hostname of our database service
-      - DB_PORT=5432  # The port of our database service (default postgres port)
+      - DB_ENDPOINT=db:5432  # The hostname of our database service
       - DB_USER=${POSTGRES_USER}  # The username of our database service
       - DB_PASSWORD=${POSTGRES_PASSWORD}  # The password of our database service
       - DB_NAME=estuary  # The name of our database
+      - VOLUME_DIR=/mnt  # The directory where we will store our data
     ports:
       - "3004:3004"
       - "3004:3004/udp"
     volumes:
-      - estuary-data:/mnt/
+      - estuary-data:/mnt
     # This depends on the database service,
     depends_on:
       - db
@@ -41,7 +43,7 @@ services:
       - frontend
     # but we (also) need to wait for it to be ready
     # Remember to reference our the backend db correctly if you change its configuration
-    command: ["./wait-for-it.sh", "db:5432", "--timeout=5", "--", "/app/start.sh"]
+    command: ["./wait-for-it.sh", "db:5432", "--timeout=5", "--", "/app/start.sh", "${POSTGRES_USER}", "${POSTGRES_PASSWORD}"]
   # And finally our Postgres Backend
   db:
     image: postgres:latest
