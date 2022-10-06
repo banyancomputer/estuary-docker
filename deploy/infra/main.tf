@@ -27,8 +27,9 @@ resource "aws_vpc" "vpc" {
   # Allow DNS hostnames to be created in the VPC (i.e. allow instances to have hostnames)
   enable_dns_hostnames = true
   tags                 = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "vpc"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "vpc"])
   }
 }
 
@@ -36,8 +37,9 @@ resource "aws_vpc" "vpc" {
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.vpc.id
   tags   = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "igw"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "igw"])
   }
 }
 
@@ -49,8 +51,9 @@ resource "aws_subnet" "public" {
   cidr_block        = var.public_subnet_cidrs[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags              = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "public-subnet", count.index])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "public-subnet", count.index])
   }
 }
 # Private Subnet(s)
@@ -60,8 +63,9 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnet_cidrs[count.index]
   availability_zone = data.aws_availability_zones.available.names[count.index]
   tags              = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "private-subnet", count.index])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "private-subnet", count.index])
   }
 }
 
@@ -74,8 +78,9 @@ resource "aws_route_table" "rt" {
     gateway_id = aws_internet_gateway.igw.id
   }
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "rt"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "rt"])
   }
 }
 # Public Subnet Association
@@ -94,7 +99,7 @@ resource "aws_route_table_association" "private" {
 /* Security Groups */
 # Ec2 Security Group
 resource "aws_security_group" "ec2" {
-  name        = "ec2_sg"
+  name        = join("-", [var.app.name, "ec2-sg", random_string.deploy_id.result])
   description = "Allow inbound traffic from the Internet to our Estuary EC2 instance(s)"
   vpc_id      = aws_vpc.vpc.id
 
@@ -139,13 +144,14 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2-sg"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "ec2-sg"])
   }
 }
 # RDS Security Group
 resource "aws_security_group" "rds" {
-  name        = "rds_sg"
+  name        = join("-", [var.app.name, "rds-sg", random_string.deploy_id.result])
   description = "Security Group for our RDS instance"
   vpc_id      = aws_vpc.vpc.id
 
@@ -168,18 +174,20 @@ resource "aws_security_group" "rds" {
   }
 
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "rds-sg"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "rds-sg"])
   }
 }
 # Declare a Subnet group for our RDS instance
 resource "aws_db_subnet_group" "rds" {
-  name        = join("-", [var.app.name, "rds-subnet-group"])
+  name        = join("-", [var.app.name, "rds-subnet-group", random_string.deploy_id.result])
   description = "Subnet group for our RDS instance"
   subnet_ids  = aws_subnet.private[*].id # Neato!
   tags        = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "rds-subnet-group"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "rds-subnet-group"])
   }
 }
 
@@ -187,7 +195,7 @@ resource "aws_db_subnet_group" "rds" {
 
 /* RDS Instances */
 resource "aws_db_instance" "rds" {
-  identifier             = join("-", [var.app.name, "rds"])
+  identifier             = join("-", [var.app.name, "rds", random_string.deploy_id.result])
   allocated_storage      = tonumber(var.settings.rds.allocated_storage)
   engine                 = var.settings.rds.engine
   engine_version         = var.settings.rds.engine_version
@@ -201,8 +209,9 @@ resource "aws_db_instance" "rds" {
   ]
   skip_final_snapshot = tobool(var.settings.rds.skip_final_snapshot)
   tags                = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "rds"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "rds"])
   }
 }
 
@@ -218,12 +227,12 @@ resource "tls_private_key" "ec2" {
   }
 }
 resource "aws_key_pair" "ec2" {
-  key_name   = join("-", [var.app.name, "ec2-key"])
+  key_name   = join("-", [var.app.name, "ec2-key", random_string.deploy_id.result])
   public_key = tls_private_key.ec2.public_key_openssh
 }
 # IAM Role
 resource "aws_iam_role" "ec2" {
-  name               = join("-", [var.app.name, "ec2-role"])
+  name               = join("-", [var.app.name, "ec2-role", random_string.deploy_id.result])
   # TODO (amiller68) - Is this the right policy?
   assume_role_policy = jsonencode({
     Version   = "2012-10-17"
@@ -239,20 +248,22 @@ resource "aws_iam_role" "ec2" {
     ]
   })
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2-role"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "ec2-role"])
   }
 }
 resource "aws_iam_instance_profile" "ec2" {
-  name = join("-", [var.app.name, "ec2-profile"])
+  name = join("-", [var.app.name, "ec2-profile", random_string.deploy_id.result])
   role = aws_iam_role.ec2.name
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2-profile"])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "ec2-profile"])
   }
 }
 resource "aws_iam_role_policy" "ec2" {
-  name   = join("-", [var.app.name, "ec2-policy"])
+  name   = join("-", [var.app.name, "ec2-policy", random_string.deploy_id.result])
   role   = aws_iam_role.ec2.id
   # TODO (amiller68): Narrow down this policy to just the ECR image we need
   policy = jsonencode({
@@ -316,18 +327,10 @@ resource "aws_instance" "ec2" {
   vpc_security_group_ids = [aws_security_group.ec2.id]
   subnet_id              = aws_subnet.public[count.index].id
 
-  user_data              = <<-EOF
-    #!/bin/bash
-    set -ex
-    sudo yum update -y
-    sudo amazon-linux-extras install docker -y
-    sudo service docker start
-    sudo usermod -a -G docker ec2-user
-  EOF
-
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2", count.index])
+    deployment_id = random_string.deploy_id.result
+    project       = var.app.name
+    Name          = join("-", [var.app.name, "ec2", count.index, random_string.deploy_id.result])
   }
 }
 # Elastic IP
@@ -339,10 +342,11 @@ resource "aws_eip" "ec2" {
   # Provision Our services with Ansible
   provisioner "local-exec" {
     command = <<-EOT
+      export ANSIBLE_HOST_KEY_CHECKING=False
       ansible-playbook \
-        -i ${aws_instance.ec2[0].public_dns}, \
+        -i ${self.public_dns}, \
         -u ec2-user \
-        --private-key ~/.ssh${var.app.name}-ec2-key.pem \
+        --private-key ~/.ssh/${var.app.name}-ec2-key.pem \
         --extra-vars "app=${var.app.name}" \
         --extra-vars "aws_region=${var.aws_region}" \
         --extra-vars "aws_account_id=${data.aws_caller_identity.current.account_id}" \
@@ -355,49 +359,52 @@ resource "aws_eip" "ec2" {
         --extra-vars "db_name=${var.settings.rds.db_name}" \
         --extra-vars "db_username=${var.rds_username}" \
         --extra-vars "db_password=${var.rds_password}" \
+        --extra-vars "ebs_size=${var.settings.ebs.volume_size}" \
+        --extra-vars "ebs_type=${var.settings.ebs.volume_type}" \
         --extra-vars "ebs_mount_dir=${var.settings.ebs.mount_dir}" \
         ec2-setup.yml
     EOT
   }
 
-  tags     = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2-eip", count.index])
+  tags = {
+    project       = var.app.name
+    deployment_id = random_string.deploy_id.result
+    Name          = join("-", [var.app.name, "ec2-eip", count.index, random_string.deploy_id.result])
   }
 }
 # TODO: (amiller68) - Add a Route53 zone for the domain. We can use this to create a CNAME record for the EC2 instance
-#resource "aws_acm_certificate" "ec2" {
-#  domain_name       = "example.com"
-#  validation_method = "DNS"
-#}
-#
-#resource "aws_route53_zone" "ec2" {
-#  name         = "example.com"
-#}
-#
-#resource "aws_route53_record" "ec2" {
-#  for_each = {
-#    for dvo in aws_acm_certificate.ec2.domain_validation_options : dvo.domain_name => {
-#      name   = dvo.resource_record_name
-#      record = dvo.resource_record_value
-#      type   = dvo.resource_record_type
-#    }
-#  }
-#
-#  allow_overwrite = true
-#  name            = each.value.name
-#  records         = [each.value.record]
-#  ttl             = 60
-#  type            = each.value.type
-#  zone_id         = aws_route53_zone.ec2.zone_id
-#}
-#
-#resource "aws_acm_certificate_validation" "ec2" {
-#  certificate_arn         = aws_acm_certificate.ec2.arn
-#  validation_record_fqdns = [for record in aws_route53_record.ec2 : record.fqdn]
-#}
+resource "aws_acm_certificate" "ec2" {
+  domain_name       = var.app.api_hostname
+  validation_method = "DNS"
+}
+
+data "aws_route53_zone" "ec2" {
+  name = var.app.api_hostname
+}
+
+resource "aws_route53_record" "ec2" {
+  for_each = {
+  for dvo in aws_acm_certificate.ec2.domain_validation_options : dvo.domain_name => {
+    name   = dvo.resource_record_name
+    record = dvo.resource_record_value
+    type   = dvo.resource_record_type
+  }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.ec2.zone_id
+}
+
+resource "aws_acm_certificate_validation" "ec2" {
+  certificate_arn         = aws_acm_certificate.ec2.arn
+  validation_record_fqdns = [for record in aws_route53_record.ec2 : record.fqdn]
+}
 resource "aws_elb" "ec2" {
-  name               = join("-", [var.app.name, "ec2-elb"])
+  name    = join("-", [var.app.name, "ec2-elb", random_string.deploy_id.result])
   # TODO (amiller68): Make more robust to handle multiple subnets
   subnets = [
     aws_subnet.public[0].id,
@@ -409,14 +416,14 @@ resource "aws_elb" "ec2" {
     lb_port           = 80
     lb_protocol       = "http"
   }
-  # Note (al) - This won't work until we set up a Route53 zone for the domain
-  #  listener {
-  #    instance_port      = 80
-  #    instance_protocol  = "http"
-  #    lb_port            = 443
-  #    lb_protocol        = "https"
-  #    ssl_certificate_id = aws_acm_certificate_validation.ec2.certificate_arn
-  #  }
+  #   Note (al) - This won't work until we set up a Route53 zone for the domain
+  listener {
+    instance_port      = 80
+    instance_protocol  = "http"
+    lb_port            = 443
+    lb_protocol        = "https"
+    ssl_certificate_id = aws_acm_certificate_validation.ec2.certificate_arn
+  }
   health_check {
     healthy_threshold   = 2
     unhealthy_threshold = 2
@@ -425,12 +432,13 @@ resource "aws_elb" "ec2" {
     interval            = 30
   }
 
-  instances                   = [aws_instance.ec2[0].id]
-  cross_zone_load_balancing   = true
-  idle_timeout                = 400
+  instances                 = [aws_instance.ec2[0].id]
+  cross_zone_load_balancing = true
+  idle_timeout              = 400
 
   tags = {
-    project = var.app.name
-    Name    = join("-", [var.app.name, "ec2-elb"])
+    project       = var.app.name
+    deployment_id = random_string.deploy_id.result
+    Name          = join("-", [var.app.name, "ec2-elb"])
   }
 }

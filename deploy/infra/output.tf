@@ -1,3 +1,8 @@
+output "deploy_id" {
+    description = "The ID of the deployment"
+    value = random_string.deploy_id.result
+    depends_on = [random_string.deploy_id]
+}
 # Ec2 IP
 output "ec2_public_ip" {
     description = "The public IP address of the EC2 instance"

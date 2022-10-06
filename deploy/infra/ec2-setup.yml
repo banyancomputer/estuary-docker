@@ -2,36 +2,58 @@
   hosts: all
   name: Setup and
   tasks:
+    - name: Update Yum
+      yum:
+        name: '*'
+        state: latest
+        update_cache: yes
+      register: yum_update
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+      register: docker_install
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+      register: docker_start
+    - name: Add User to Docker Group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+      register: docker_user
+    - name: Install Python Docker
+      pip:
+        name: docker
+        state: present
     - name: Get ECR Login
       shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
       register: ecr_login
     - name: Pull Estuary from ECR
-      community.docker_image:
+      community.docker.docker_image:
         name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
         source: pull
-        force_source: yes
-        force: yes
-        state: present
-        timeout: 300
-      register: estuary_image_pull
     - name: Install the Rexray Docker Plugin
-      community.docker_plugin:
-        name: rexray/ebs
-        alias: rexray/ebs
+      community.docker.docker_plugin:
+        plugin_name: rexray/ebs
         state: present
-        timeout: 300
-      register: rexray_plugin_install
-    - name: Create a Docker Volume for Estuary with Rexray
-      community.docker_volume:
-        name: { { app } }-volume
+    - name: Enable the Rexray Docker Plugin
+      community.docker.docker_plugin:
+          plugin_name: rexray/ebs
+          state: enable
+    - name: Create a Docker Volume for the App with Rexray
+      docker_volume:
+        name: "{{ app }}-volume"
         driver: rexray/ebs
         driver_options:
-          size: { { ebs_size } }
-          volumeType: { { ebs_type } }
+          size: "{{ ebs_size }}"
+          volumeType: "{{ ebs_type }}"
         state: present
         timeout: 300
-      register: estuary_volume_create
-    - name: Run Estuary
+      register: "app_volume_create"
+    - name: Run App Container
       docker_container:
         name: estuary
         image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
@@ -50,5 +72,5 @@
         volumes:
           - "{{ app }}-volume:{{ ebs_mount_dir }}"
         command: [ "/app/start.sh", "{{ db_username }}", "{{ db_password }}" ]
-        register: estuary_container_run
+      register: "app_container_run"
 

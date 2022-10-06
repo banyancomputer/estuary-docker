@@ -6,13 +6,20 @@ variable "aws_region" {
 variable "blockstore_size" {
   default = "20"
 }
+# A random string to append to the end of the name
+resource "random_string" "deploy_id" {
+  length  = 8
+  upper = false
+  special = false
+}
+
 # What defines access to our application
 variable "app" {
   type    = map(string)
   default = {
     name         = "estuary"
-    www_hostname = "banyan.computer"
-    api_hostname = "banyan.computer"
+    www_hostname = "banyan.computer" # TODO: change this to your domain
+    api_hostname = "testing.banyan.computer"
     api_port     = "3004"
     fullnode_api = "ws://api.chain.love"
   }
