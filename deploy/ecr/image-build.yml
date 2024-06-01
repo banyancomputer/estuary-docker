@@ -1,0 +1,21 @@
+- name: Build and Push our Server Image
+  hosts: localhost
+  connection: localhost
+  tasks:
+  - name: Get ECR Login
+    shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
+    register: ecr_login
+  - name: Build Image
+    command:
+      chdir: "{{ docker_dir }}"
+      cmd: docker build -t  estuary-ecr .
+    register: image_build
+  - name: Tag Estuary
+    command: docker tag estuary-ecr:latest {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/estuary-ecr:latest
+    register: estuary_tag
+  - name: Push Image to ECR
+    command:
+      cmd: docker push {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/estuary-ecr:latest
+    register: image_push
+    until: image_push is succeeded
+

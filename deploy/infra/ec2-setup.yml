@@ -1,0 +1,76 @@
+- become: yes
+  hosts: all
+  name: Setup and
+  tasks:
+    - name: Update Yum
+      yum:
+        name: '*'
+        state: latest
+        update_cache: yes
+      register: yum_update
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+      register: docker_install
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+      register: docker_start
+    - name: Add User to Docker Group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+      register: docker_user
+    - name: Install Python Docker
+      pip:
+        name: docker
+        state: present
+    - name: Get ECR Login
+      shell: aws ecr get-login-password --region {{ aws_region }} | docker login --username AWS --password-stdin {{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com
+      register: ecr_login
+    - name: Pull Estuary from ECR
+      community.docker.docker_image:
+        name: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
+        source: pull
+    - name: Install the Rexray Docker Plugin
+      community.docker.docker_plugin:
+        plugin_name: rexray/ebs
+        state: present
+    - name: Enable the Rexray Docker Plugin
+      community.docker.docker_plugin:
+          plugin_name: rexray/ebs
+          state: enable
+    - name: Create a Docker Volume for the App with Rexray
+      docker_volume:
+        name: "{{ app }}-volume"
+        driver: rexray/ebs
+        driver_options:
+          size: "{{ ebs_size }}"
+          volumeType: "{{ ebs_type }}"
+        state: present
+        timeout: 300
+      register: "app_volume_create"
+    - name: Run App Container
+      docker_container:
+        name: estuary
+        image: "{{ aws_account_id }}.dkr.ecr.{{ aws_region }}.amazonaws.com/{{ app }}-ecr:latest"
+        state: started
+        restart_policy: always
+        env:
+          API_HOSTNAME: "{{ api_hostname }}"
+          WWW_HOSTNAME: "{{ www_hostname }}"
+          FULLNODE_API: "{{ fullnode_api }}"
+          DB_TYPE: "{{ db_type }}"
+          DB_ENDPOINT: "{{ db_endpoint }}"
+          DB_NAME: "{{ db_name }}"
+          VOLUME_DIR: "{{ ebs_mount_dir }}"
+        ports:
+          - "80:{{ api_port }}"
+        volumes:
+          - "{{ app }}-volume:{{ ebs_mount_dir }}"
+        command: [ "/app/start.sh", "{{ db_username }}", "{{ db_password }}" ]
+      register: "app_container_run"
+
